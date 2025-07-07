@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="styles.css" />
+  <title>E-commerce Frontend</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    input, button { margin: 5px; padding: 5px; }
+    .section { margin-bottom: 30px; }
+  </style>
+</head>
+<body>
+
+  <h2>🔐 Login</h2>
+  <div class="section">
+    <input type="email" id="email" placeholder="Email" />
+    <input type="password" id="password" placeholder="Password" />
+    <button onclick="login()">Login</button>
+    <p id="loginStatus"></p>
+  </div>
+
+  <h2>🛒 Products</h2>
+  <div class="section">
+    <button onclick="fetchProducts()">Load Products</button>
+    <div id="productList"></div>
+  </div>
+
+  <h2>🧺 Cart</h2>
+  <div class="section">
+    <button onclick="viewCart()">View Cart</button>
+    <div id="cartList"></div>
+    <button onclick="placeOrder()">Place Order</button>
+  </div>
+
+  <h2>➕ Add Product (Admin Only)</h2>
+  <div class="section">
+    <input type="text" id="productName" placeholder="Product Name" />
+    <input type="text" id="productDesc" placeholder="Description" />
+    <input type="number" id="productPrice" placeholder="Price" />
+    <input type="text" id="productCategory" placeholder="Category" />
+    <button onclick="addProduct()">Add Product</button>
+    <p id="addProductStatus"></p>
+  </div>
+
+  <script>
+    const API = 'http://localhost:5000/api';
+    let token = '';
+
+    function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      fetch(`${API}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      })
+      .then(res => res.json())
+      .then(data => {
+        token = data.token;
+        document.getElementById('loginStatus').innerText = '✅ Logged in!';
+      })
+      .catch(err => console.error(err));
+    }
+
+    function fetchProducts() {
+      fetch(`${API}/products`)
+        .then(res => res.json())
+        .then(products => {
+          const list = products.map(p => `
+            <div>
+              <b>${p.name}</b> - ₹${p.price}
+              <button onclick="addToCart(${p.id})">Add to Cart</button>
+            </div>
+          `).join('');
+          document.getElementById('productList').innerHTML = list;
+        });
+    }
+
+    function addToCart(productId) {
+      const quantity = 1;
+
+      fetch(`${API}/cart`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ product_id: productId, quantity })
+      })
+      .then(res => res.json())
+      .then(data => alert('✅ Added to cart!'))
+      .catch(err => alert('❌ Failed to add to cart'));
+    }
+
+    function viewCart() {
+      fetch(`${API}/cart`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(items => {
+        if (items.length === 0) return document.getElementById('cartList').innerText = '🛒 Cart is empty';
+        const list = items.map(i => `
+          <div>${i.name} x ${i.quantity} - ₹${i.price}</div>
+        `).join('');
+        document.getElementById('cartList').innerHTML = list;
+      });
+    }
+
+    function placeOrder() {
+      fetch(`${API}/orders`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => alert('✅ Order Placed!'))
+      .catch(err => alert('❌ Order Failed'));
+    }
+
+    function addProduct() {
+      const name = document.getElementById('productName').value;
+      const description = document.getElementById('productDesc').value;
+      const price = parseFloat(document.getElementById('productPrice').value);
+      const category = document.getElementById('productCategory').value;
+
+      if (!name || !price) {
+        return alert('Name and price are required');
+      }
+
+      fetch(`${API}/products`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ name, description, price, category })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.message) {
+          document.getElementById('addProductStatus').innerText = '✅ Product added!';
+          fetchProducts(); // refresh list
+        } else {
+          document.getElementById('addProductStatus').innerText = '❌ Failed to add';
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        document.getElementById('addProductStatus').innerText = '❌ Error occurred';
+      });
+    }
+  </script>
+</body>
+</html>
